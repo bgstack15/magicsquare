@@ -9,5 +9,7 @@ Tested in MTG, Voxellibre, Mineclonia, and chests to ensure that contents are no
 Can be crafted with all sticks except the middle.
 
 S S S
+
 S _ S
+
 S S S
