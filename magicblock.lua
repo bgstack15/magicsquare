@@ -191,7 +191,7 @@ minetest.register_on_leaveplayer(function(player)
     local name = player:get_player_name()
     local data = phased_blocks[name]
     if data then
-        minetest.set_node(data.pos, {name = data.node})
+        minetest.set_node(data.pos, {name = data.node, param1 = data.param1, param2 = data.param2})
 
         local meta = minetest.get_meta(data.pos)
         local inv = meta:get_inventory()
@@ -199,6 +199,14 @@ minetest.register_on_leaveplayer(function(player)
             inv:set_size(list_name, #items)
             for i, item in ipairs(items) do
                 inv:set_stack(list_name, i, ItemStack(item))
+            end
+        end
+        -- restore metadata
+        local new_meta = minetest.get_meta(data.pos)
+        local meta_table = item:get_meta():to_table().fields
+        for i, j in pairs(data["added_items"]) do
+            if not list_has_item(ignored_meta_values, i) then
+                new_meta:set_string(i,j)
             end
         end
 
