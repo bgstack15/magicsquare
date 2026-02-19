@@ -140,109 +140,109 @@ end
 
 -- Globalstep: auto-release block on deselect
 if config.drop_on_deselect then
-minetest.register_globalstep(function(dtime)
-    for name, data in pairs(phased_blocks) do
-        local player = minetest.get_player_by_name(name)
-        if player and data then
-            local item = player:get_wielded_item()
-            local item_name = item:get_name()
+    minetest.register_globalstep(function(dtime)
+        for name, data in pairs(phased_blocks) do
+            local player = minetest.get_player_by_name(name)
+            if player and data then
+                local item = player:get_wielded_item()
+                local item_name = item:get_name()
 
-            -- Auto-release if deselected
-            if last_wielded[name] == modname .. ":magic_square_full" and item_name ~= modname .. ":magic_square_full" then
-                minetest.set_node(data.pos, {name = data.node, param1 = data.param1, param2 = data.param2})
+                -- Auto-release if deselected
+                if last_wielded[name] == modname .. ":magic_square_full" and item_name ~= modname .. ":magic_square_full" then
+                    minetest.set_node(data.pos, {name = data.node, param1 = data.param1, param2 = data.param2})
 
-                local meta = minetest.get_meta(data.pos)
-                local inv = meta:get_inventory()
-                for list_name, items in pairs(data.inventories or {}) do
-                    inv:set_size(list_name, #items)
-                    for i, item in ipairs(items) do
-                        inv:set_stack(list_name, i, ItemStack(item))
+                    local meta = minetest.get_meta(data.pos)
+                    local inv = meta:get_inventory()
+                    for list_name, items in pairs(data.inventories or {}) do
+                        inv:set_size(list_name, #items)
+                        for i, item in ipairs(items) do
+                            inv:set_stack(list_name, i, ItemStack(item))
+                        end
+                    end
+                    -- restore metadata
+                    local new_meta = minetest.get_meta(data.pos)
+                    local meta_table = item:get_meta():to_table().fields
+                    for i, j in pairs(data["added_items"]) do
+                        if not list_has_item(ignored_meta_values, i) then
+                            new_meta:set_string(i,j)
+                        end
+                    end
+
+                    phased_blocks[name] = nil
+
+                    -- Replace the exact slot with empty square
+                    local slot = active_slot[name]
+                    if slot then
+                        local inv = player:get_inventory()
+                        local stack = inv:get_stack("main", slot)
+                        if stack:get_name() == modname .. ":magic_square_full" then
+                            inv:set_stack("main", slot, ItemStack(modname .. ":magic_square_empty"))
+                        end
+                        active_slot[name] = nil
                     end
                 end
-                -- restore metadata
-                local new_meta = minetest.get_meta(data.pos)
-                local meta_table = item:get_meta():to_table().fields
-                for i, j in pairs(data["added_items"]) do
-                    if not list_has_item(ignored_meta_values, i) then
-                        new_meta:set_string(i,j)
-                    end
-                end
 
-                phased_blocks[name] = nil
-
-                -- Replace the exact slot with empty square
-                local slot = active_slot[name]
-                if slot then
-                    local inv = player:get_inventory()
-                    local stack = inv:get_stack("main", slot)
-                    if stack:get_name() == modname .. ":magic_square_full" then
-                        inv:set_stack("main", slot, ItemStack(modname .. ":magic_square_empty"))
-                    end
-                    active_slot[name] = nil
-                end
+                last_wielded[name] = item_name
             end
-
-            last_wielded[name] = item_name
         end
-    end
-end)
+    end)
 end
 
 -- Restore block on logout
 if config.drop_on_logout then
-minetest.register_on_leaveplayer(function(player)
-    local name = player:get_player_name()
-    local data = phased_blocks[name]
-    if data then
-        minetest.set_node(data.pos, {name = data.node, param1 = data.param1, param2 = data.param2})
+    minetest.register_on_leaveplayer(function(player)
+        local name = player:get_player_name()
+        local data = phased_blocks[name]
+        if data then
+            minetest.set_node(data.pos, {name = data.node, param1 = data.param1, param2 = data.param2})
 
-        local meta = minetest.get_meta(data.pos)
-        local inv = meta:get_inventory()
-        for list_name, items in pairs(data.inventories or {}) do
-            inv:set_size(list_name, #items)
-            for i, item in ipairs(items) do
-                inv:set_stack(list_name, i, ItemStack(item))
+            local meta = minetest.get_meta(data.pos)
+            local inv = meta:get_inventory()
+            for list_name, items in pairs(data.inventories or {}) do
+                inv:set_size(list_name, #items)
+                for i, item in ipairs(items) do
+                    inv:set_stack(list_name, i, ItemStack(item))
+                end
             end
-        end
-        -- restore metadata
-        local new_meta = minetest.get_meta(data.pos)
-        local meta_table = item:get_meta():to_table().fields
-        for i, j in pairs(data["added_items"]) do
-            if not list_has_item(ignored_meta_values, i) then
-                new_meta:set_string(i,j)
+            -- restore metadata
+            local new_meta = minetest.get_meta(data.pos)
+            local meta_table = item:get_meta():to_table().fields
+            for i, j in pairs(data["added_items"]) do
+                if not list_has_item(ignored_meta_values, i) then
+                    new_meta:set_string(i,j)
+                end
             end
-        end
 
-        phased_blocks[name] = nil
-        active_slot[name] = nil
+            phased_blocks[name] = nil
+            active_slot[name] = nil
 
-        -- Clear metadata from full square
-        local inv = player:get_inventory()
-        for i = 1, inv:get_size("main") do
-            local stack = inv:get_stack("main", i)
-            if stack:get_name() == modname .. ":magic_square_full" then
-                local meta = stack:get_meta()
+            -- Clear metadata from full square
+            local inv = player:get_inventory()
+            for i = 1, inv:get_size("main") do
+                local stack = inv:get_stack("main", i)
+                if stack:get_name() == modname .. ":magic_square_full" then
+                    local meta = stack:get_meta()
+                    meta:set_string("type", "")
+                    meta:set_string("stored_node", "")
+                    meta:set_string("stored_texture", "")
+                    meta:set_string("stored_inventories", "")
+                    meta:set_string("description", "")
+                    inv:set_stack("main", i, stack)
+                end
+            end
+
+            local wielded = player:get_wielded_item()
+            if wielded:get_name() == modname .. ":magic_square_full" then
+                local meta = wielded:get_meta()
                 meta:set_string("type", "")
                 meta:set_string("stored_node", "")
                 meta:set_string("stored_texture", "")
                 meta:set_string("stored_inventories", "")
                 meta:set_string("description", "")
-                inv:set_stack("main", i, stack)
+                player:set_wielded_item(ItemStack(modname .. ":magic_square_empty"))
             end
         end
-
-        local wielded = player:get_wielded_item()
-        if wielded:get_name() == modname .. ":magic_square_full" then
-            local meta = wielded:get_meta()
-            meta:set_string("type", "")
-            meta:set_string("stored_node", "")
-            meta:set_string("stored_texture", "")
-            meta:set_string("stored_inventories", "")
-            meta:set_string("description", "")
-            player:set_wielded_item(ItemStack(modname .. ":magic_square_empty"))
-        end
-    end
-end)
+    end)
 end
 
 return M
