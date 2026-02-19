@@ -18,6 +18,11 @@ return {
         --"mobs_mc:pig",
         --"mobs:monster",
         -- Add more as needed
-    }
+    },
+
+    -- Forcibly drop item if magic square is deselected
+    drop_on_deselect = true,
+    -- Forcibly drop item if the player quits
+    drop_on_logout = true,
 }
 

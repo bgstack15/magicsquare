@@ -139,6 +139,7 @@ function M.release_block(itemstack, placer, pointed_thing)
 end
 
 -- Globalstep: auto-release block on deselect
+if config.drop_on_deselect then
 minetest.register_globalstep(function(dtime)
     for name, data in pairs(phased_blocks) do
         local player = minetest.get_player_by_name(name)
@@ -158,7 +159,7 @@ minetest.register_globalstep(function(dtime)
                         inv:set_stack(list_name, i, ItemStack(item))
                     end
                 end
-                -- restore metadata if auto-released
+                -- restore metadata
                 local new_meta = minetest.get_meta(data.pos)
                 local meta_table = item:get_meta():to_table().fields
                 for i, j in pairs(data["added_items"]) do
@@ -185,8 +186,10 @@ minetest.register_globalstep(function(dtime)
         end
     end
 end)
+end
 
 -- Restore block on logout
+if config.drop_on_logout then
 minetest.register_on_leaveplayer(function(player)
     local name = player:get_player_name()
     local data = phased_blocks[name]
@@ -240,6 +243,7 @@ minetest.register_on_leaveplayer(function(player)
         end
     end
 end)
+end
 
 return M
 
