@@ -6,6 +6,25 @@ local phased_blocks = {}
 local last_wielded = {}
 local active_slot = {}
 
+local ignored_meta_values = {
+    --"infotext",
+    "formspec",
+    "inventory",
+}
+
+local function table_contains(intable, key)
+    return intable[key] ~= nil
+end
+
+-- Because I want to check either key or value.
+local function list_has_item(intable, value)
+    if intable[value] ~= nil then return true end
+    for _, v in pairs(intable) do
+        if v == value then return true end
+    end
+    return false
+end
+
 function M.set_config(cfg)
     config = cfg
 end
@@ -34,6 +53,7 @@ function M.capture_block(itemstack, user, pointed_thing)
     local inv = node_meta:get_inventory()
     local all_lists = inv:get_lists()
     local saved_inventories = {}
+    local meta_table = node_meta:to_table().fields
 
     for list_name, list in pairs(all_lists) do
         saved_inventories[list_name] = {}
@@ -42,20 +62,32 @@ function M.capture_block(itemstack, user, pointed_thing)
             saved_inventories[list_name][i] = stack:to_string()
         end
     end
+    local full = ItemStack(modname .. ":magic_square_full")
+    local meta = full:get_meta()
+    local added_items = {}
+    for i, j in pairs(meta_table) do
+        if not list_has_item(ignored_meta_values, i) then
+            meta:set_string(i,j)
+            added_items[i] = j
+        end
+    end
 
     phased_blocks[user:get_player_name()] = {
         pos = pos,
         node = node.name,
-        inventories = saved_inventories
+        inventories = saved_inventories,
+        added_items = added_items,
+        param1 = node.param1,
+        param2 = node.param2,
     }
 
-    local full = ItemStack(modname .. ":magic_square_full")
-    local meta = full:get_meta()
     meta:set_string("type", "block")
     meta:set_string("stored_node", node.name)
     meta:set_string("stored_texture", lightened)
     meta:set_string("stored_inventories", minetest.serialize(saved_inventories))
     meta:set_string("description", "Magic Square (contains " .. node.name .. ")")
+    meta:set_string("param1", node.param1)
+    meta:set_string("param2", node.param2)
 
     minetest.remove_node(pos)
     user:set_wielded_item(full)
@@ -75,7 +107,7 @@ function M.release_block(itemstack, placer, pointed_thing)
     local name = placer:get_player_name()
     if minetest.is_protected(pos, name) then return itemstack end
 
-    minetest.set_node(pos, {name = stored})
+    minetest.set_node(pos, {name = stored, param1 = meta:get_string("param1"), param2 = meta:get_string("param2")})
 
     local stored_data = meta:get_string("stored_inventories")
     if stored_data ~= "" then
@@ -88,6 +120,13 @@ function M.release_block(itemstack, placer, pointed_thing)
             for i, item in ipairs(items) do
                 new_inv:set_stack(list_name, i, ItemStack(item))
             end
+        end
+    end
+    local new_meta = minetest.get_meta(pos)
+    local meta_table = meta:to_table().fields
+    for i, j in pairs(meta_table) do
+        if not list_has_item(ignored_meta_values, i) then
+            new_meta:set_string(i,j)
         end
     end
 
@@ -109,7 +148,7 @@ minetest.register_globalstep(function(dtime)
 
             -- Auto-release if deselected
             if last_wielded[name] == modname .. ":magic_square_full" and item_name ~= modname .. ":magic_square_full" then
-                minetest.set_node(data.pos, {name = data.node})
+                minetest.set_node(data.pos, {name = data.node, param1 = data.param1, param2 = data.param2})
 
                 local meta = minetest.get_meta(data.pos)
                 local inv = meta:get_inventory()
@@ -117,6 +156,14 @@ minetest.register_globalstep(function(dtime)
                     inv:set_size(list_name, #items)
                     for i, item in ipairs(items) do
                         inv:set_stack(list_name, i, ItemStack(item))
+                    end
+                end
+                -- restore metadata if auto-released
+                local new_meta = minetest.get_meta(data.pos)
+                local meta_table = item:get_meta():to_table().fields
+                for i, j in pairs(data["added_items"]) do
+                    if not list_has_item(ignored_meta_values, i) then
+                        new_meta:set_string(i,j)
                     end
                 end
 
